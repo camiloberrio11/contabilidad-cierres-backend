@@ -4,12 +4,12 @@ const EtiquetaSchema = new Schema({
   Nombre: {
     type: String,
   },
-  Status: {
+  Estado: {
     type: Boolean,
   },
   FechaCreacion: {
     type: Date,
-    default: Date.now,
+    default: new Date()?.toISOString(),
   },
   Color: {
     type: String,
