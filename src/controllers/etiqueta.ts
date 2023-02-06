@@ -16,15 +16,12 @@ export async function crearEtiqueta(req: any, res: any): Promise<ResponseHttpSer
   }
 }
 
-
 export async function actualizarEtiqueta(req: any, res: any): Promise<ResponseHttpService> {
   try {
-    const estado = req?.body?.nuevoEstado;
+    const etiqueta = req?.body;
     const nuevaEtiqueta = await Etiqueta?.findOneAndUpdate(
       { _id: req?.params?.idetiqueta },
-      {
-        Estado: estado,
-      },
+      etiqueta,
       { new: true }
     );
     return responseHttpService(200, nuevaEtiqueta, '', true, res);
@@ -35,7 +32,7 @@ export async function actualizarEtiqueta(req: any, res: any): Promise<ResponseHt
 
 export async function obtenerListadoEtiquetas(req: any, res: any): Promise<ResponseHttpService> {
   try {
-    const etiquetas = await Etiqueta?.find({ Estado: true });
+    const etiquetas = await Etiqueta?.find({})?.sort({ FechaCreacion: -1 });
     return responseHttpService(200, etiquetas, '', true, res);
   } catch (error: any) {
     return responseHttpService(500, null, error?.message, false, res);
