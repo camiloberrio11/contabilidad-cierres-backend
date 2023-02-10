@@ -17,9 +17,28 @@ export async function crearArchivo(req: any, res: any): Promise<ResponseHttpServ
       Informacion: infoArchivo,
     };
 
-    const columna = new Archivo(mapModelo);
-    await columna.save();
+    const archivo = new Archivo(mapModelo);
+    await archivo.save();
     return responseHttpService(200, infoArchivo, 'Archivo creado', true, res);
+  } catch (error: any) {
+    return responseHttpService(500, null, error?.message, false, res);
+  }
+}
+
+export async function obtenerArchivoFiltro(req: any, res: any): Promise<ResponseHttpService> {
+  try {
+    const filtro = {
+      Ano: req?.body?.ano,
+      Mes: req?.body?.mes,
+      Obra: req?.body?.obra,
+      Nombre: req?.body?.nombre?.toUpperCase(),
+    };
+    const filtroLimpio = cleanQuery(filtro);
+    const listArchivos = await Archivo.find(filtroLimpio);
+    if (listArchivos?.length > 0) {
+      return responseHttpService(200, listArchivos, '', true, res);
+    }
+    return responseHttpService(400, null, 'No se encontraron datos', true, res);
   } catch (error: any) {
     return responseHttpService(500, null, error?.message, false, res);
   }
@@ -47,58 +66,7 @@ export function construccionInformacion(fileInfo: Buffer): ItemArchivo[] {
     registroCompleto.push(registroItemModel);
   }
   return registroCompleto;
-  // console.log(registroCompleto)
-  // console.log(registroCompleto);
-  // for (const key in nombreColumnas) {
-  //   if (Object.prototype.hasOwnProperty.call(nombreColumnas, key)) {
-  //     const nombre = nombreColumnas[key];
-  //     for (const registro of registros) {
-  //       console.log({ nombre, registro });
-  //       const item = {[key]: registro[key]};
-  //       listado.push(item);
-  //     }
-  //   }
-  // }
-
-  // const [nombreColumnas] = miListadoConValores;
-  // const columnasValidas = [];
-  // const columnasMapeadas = await Columna.find({});
-  // for (const key in nombreColumnas) {
-  //   if (Object.prototype.hasOwnProperty.call(nombreColumnas, key)) {
-  //     const valorFormateado: string = removerCaracteres(`${nombreColumnas[key]}`);
-  //     const existe = columnasMapeadas?.find((it) => it?.Nombre === valorFormateado);
-  //     if (existe) {
-  //       columnasValidas.push({ [key]: valorFormateado });
-  //     }
-  //   }
-  // }
-  // // delete miListadoConValores[0];
-  // mapearEncabezadoConValores(columnasValidas, miListadoConValores?.splice(1));
 }
-
-// async function  mapearEncabezadoConValores(informacion: any[]) {
-//   const ComunasEnDB = await Columna.find({});
-//   const [encabezados] = informacion;
-//   const datos = informacion?.splice(1);
-//   for (const key in encabezados) {
-//     if (Object.prototype.hasOwnProperty.call(encabezados, key)) {
-//       const element = removerCaracteres(encabezados[key]);
-//       const existe = ComunasEnDB?.find(it => it.Nombre === element?.toUpperCase());
-//       if (existe) {
-//         for (const iterator of datos) {
-//           let registroItemModel = {}
-//           for (const key in iterator) {
-//             if (Object.prototype.hasOwnProperty.call(iterator, key)) {
-//               registroItemModel = { ...registroItemModel, [key]: `${iterator[key]}` };
-//             }
-//           }
-//           console.log(registroItemModel)
-//         }
-
-//       }
-//     }
-//   }
-// }
 
 function obtenerMaximoColumnas(listaInfomacion: any[]): number {
   let max = 0;
@@ -115,5 +83,17 @@ function removerCaracteres(texto: string): string {
   const textoSinAcentos = texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   return textoSinAcentos?.toUpperCase();
 }
-
-// Services
+function cleanQuery(obj: any) {
+  const MES_GENERICO_TODOS = 13131313;
+  for (const propName in obj) {
+    if (
+      obj[propName] === null ||
+      obj[propName] === undefined ||
+      obj[propName] === '' ||
+      obj[propName] === MES_GENERICO_TODOS
+    ) {
+      delete obj[propName];
+    }
+  }
+  return obj;
+}
