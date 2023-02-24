@@ -1,17 +1,6 @@
 import { Schema, model } from 'mongoose';
 import Obra from './Obra';
 
-export interface Prueba {}
-// class Tester {
-//   key: string;
-//   value: string;
-
-//   constructor(_key: string, _value: string) {
-//     this.key = _key;
-//     this.value = _value;
-//   }
-// }
-
 const ArchivoSchema = new Schema({
   Nombre: {
     type: String,
@@ -28,9 +17,6 @@ const ArchivoSchema = new Schema({
     ref: Obra,
   },
   Informacion: [
-    // {
-    //   type: Tester,
-    // },
     {type: Map, of: String}
   ],
   FechaCreacion: {
