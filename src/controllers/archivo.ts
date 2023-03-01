@@ -2,7 +2,7 @@ import excelToJson from 'convert-excel-to-json';
 import { responseHttpService } from '../helpers/responseHttp';
 import { ResponseHttpService } from '../interfaces/HttpResponse';
 import Archivo from '../models/Archivo';
-import { ItemArchivo } from '..//interfaces/Archivo';
+import { ItemArchivo, ItemRegistroArchivo, RegistroArchivo } from '..//interfaces/Archivo';
 
 export async function crearArchivo(req: any, res: any): Promise<ResponseHttpService> {
   try {
@@ -72,8 +72,8 @@ export function construccionInformacion(fileInfo: Buffer): any {
 
         registroConcat = {
           ...registroConcat,
-          [cabecera?.nombre]: removerCaracteres(element),
-          letra: key,
+          [removerCaracteres(cabecera?.nombre)]: removerCaracteres(element),
+          LETRA: key,
         };
       }
     }
@@ -86,30 +86,90 @@ export function construccionInformacion(fileInfo: Buffer): any {
   );
   // Mapeo
   const listaDefinitiva: any[] = [];
-  for (let index = 0; index < listadoOrdenado.length; index++) {
-    const element = listadoOrdenado[index];
-    const childrens = listadoOrdenado?.filter((it: any) => it?.CODIGO?.includes(element?.CODIGO));
-    listadoOrdenado = listadoOrdenado.filter((it: any) => !it?.CODIGO?.includes(element?.CODIGO));
+  for (const iterator of listadoOrdenado) {
     listaDefinitiva.push({
       data: {
-        nombre: element?.NOMBRE,
-        codigo: element?.CODIGO,
-        consolidado: element?.CONSOLIDADO,
+        nombre: iterator?.NOMBRE,
+        codigo: iterator?.CODIGO,
+        consolidado: iterator?.CONSOLIDADO,
         etiqueta: null,
       },
-      children: [
-        ...childrens.map((it) => ({
-          data: {
-            nombre: it?.NOMBRE,
-            codigo: it?.CODIGO,
-            consolidado: it?.CONSOLIDADO,
-            etiqueta: null,
-          },
-        })),
-      ],
     });
   }
+  // for (let index = 0; index < listadoOrdenado.length; index++) {
+  //   const element = listadoOrdenado[index];
+  //   const childrens = listadoOrdenado?.filter((it: any) => it?.CODIGO?.includes(element?.CODIGO));
+  //   listadoOrdenado = listadoOrdenado.filter((it: any) => !it?.CODIGO?.includes(element?.CODIGO));
+  //   listaDefinitiva.push({
+  //     data: {
+  //       nombre: element?.NOMBRE,
+  //       codigo: element?.CODIGO,
+  //       consolidado: element?.CONSOLIDADO,
+  //       etiqueta: null,
+  //     },
+  //     children: [
+  //       ...childrens.map((it) => ({
+  //         data: {
+  //           nombre: it?.NOMBRE,
+  //           codigo: it?.CODIGO,
+  //           consolidado: it?.CONSOLIDADO,
+  //           children: [],
+  //           etiqueta: null,
+  //         },
+  //       })),
+  //     ],
+  //   });
+  // }
   return listaDefinitiva;
+}
+
+export async function asignarEtiqueta(req: any, res: any): Promise<ResponseHttpService> {
+  try {
+    const id = req.body?.codigo;
+    const idArchivo = req?.body?.idArchivo;
+    const etiqueta = req?.body?.etiqueta;
+    const archivoInfo = await Archivo.findOne({ _id: idArchivo });
+    if (!archivoInfo) {
+      return responseHttpService(400, null, 'Archivo no encontrado', true, res);
+    }
+    const nuevaInformacion = archivoInfo?.Informacion?.map((it) => {
+      if (it?.data?.codigo === id) {
+        it.data = { ...it?.data, etiqueta };
+      }
+      return it;
+    });
+    const archivoActualizado = await Archivo.findByIdAndUpdate(
+      { _id: idArchivo },
+      { Informacion: nuevaInformacion },
+      { new: true }
+    );
+    return responseHttpService(200, archivoActualizado, 'Archivo actualizado', true, res);
+  } catch (error: any) {
+    return responseHttpService(500, null, error?.message, false, res);
+  }
+}
+
+export async function eliminarRegistroEnArchivo(req: any, res: any): Promise<ResponseHttpService> {
+  try {
+    const id = req.body?.idArchivo;
+    const idRegistro = req.body?.idRegistro;
+
+    const archivoInfo = await Archivo.findOne({ _id: id });
+    if (!archivoInfo) {
+      return responseHttpService(400, null, 'Archivo no encontrado', true, res);
+    }
+    const nuevaInformacion = archivoInfo?.Informacion?.filter(
+      (it) => it?.data?.codigo !== idRegistro
+    );
+    const archivoActualizado = await Archivo.findByIdAndUpdate(
+      { _id: id },
+      { Informacion: nuevaInformacion },
+      { new: true }
+    );
+    return responseHttpService(200, archivoActualizado, 'Archivo actualizado', true, res);
+  } catch (error: any) {
+    return responseHttpService(500, null, error?.message, false, res);
+  }
 }
 
 function obtenerNombreHoja(info: any): string {

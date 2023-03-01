@@ -16,9 +16,7 @@ const ArchivoSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: Obra,
   },
-  Informacion: [
-    {type: Map, of: String}
-  ],
+  Informacion: [Schema.Types.Mixed],
   FechaCreacion: {
     type: Date,
     default: new Date()?.toISOString(),
