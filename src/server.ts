@@ -4,11 +4,10 @@ import * as dotenv from 'dotenv';
 import { router } from './routes/routes';
 import { connectDatabase } from './database/database';
 
-
 dotenv.config();
 
 const app = express();
-const PORT: string | number = process.env.PORT || 3001;
+const PORT: string | number = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
   res.send(`Api para vertice - Version ${process.env.VERSION}`);
