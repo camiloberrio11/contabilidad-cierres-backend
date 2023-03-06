@@ -3,6 +3,7 @@ import { responseHttpService } from '../helpers/responseHttp';
 import { ResponseHttpService } from '../interfaces/HttpResponse';
 import Archivo from '../models/Archivo';
 import { ItemArchivo, ItemRegistroArchivo, RegistroArchivo } from '..//interfaces/Archivo';
+import { encontrarPapaId } from '../helpers/archivo';
 
 export async function crearArchivo(req: any, res: any): Promise<ResponseHttpService> {
   try {
@@ -93,35 +94,14 @@ export function construccionInformacion(fileInfo: Buffer): any {
         codigo: iterator?.CODIGO,
         consolidado: iterator?.CONSOLIDADO,
         etiqueta: null,
+        papaId: encontrarPapaId(iterator?.CODIGO, listadoOrdenado)
       },
     });
   }
-  // for (let index = 0; index < listadoOrdenado.length; index++) {
-  //   const element = listadoOrdenado[index];
-  //   const childrens = listadoOrdenado?.filter((it: any) => it?.CODIGO?.includes(element?.CODIGO));
-  //   listadoOrdenado = listadoOrdenado.filter((it: any) => !it?.CODIGO?.includes(element?.CODIGO));
-  //   listaDefinitiva.push({
-  //     data: {
-  //       nombre: element?.NOMBRE,
-  //       codigo: element?.CODIGO,
-  //       consolidado: element?.CONSOLIDADO,
-  //       etiqueta: null,
-  //     },
-  //     children: [
-  //       ...childrens.map((it) => ({
-  //         data: {
-  //           nombre: it?.NOMBRE,
-  //           codigo: it?.CODIGO,
-  //           consolidado: it?.CONSOLIDADO,
-  //           children: [],
-  //           etiqueta: null,
-  //         },
-  //       })),
-  //     ],
-  //   });
-  // }
   return listaDefinitiva;
 }
+
+
 
 export async function asignarEtiqueta(req: any, res: any): Promise<ResponseHttpService> {
   try {
