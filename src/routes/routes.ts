@@ -5,8 +5,8 @@ import {
   crearEtiqueta,
   obtenerListadoEtiquetas,
 } from '../controllers/etiqueta';
-import { crearColumna } from '../controllers/columna';
 import { asignarEtiqueta, crearArchivo, eliminarRegistroEnArchivo, obtenerArchivoFiltro } from '../controllers/archivo';
+import { ObtenerListadoTiposArchivo, crearTipoArchivo } from '../controllers/tipoArchivo';
 
 export const router = Router();
 
@@ -18,12 +18,13 @@ router.post('/etiqueta', crearEtiqueta);
 router.put('/etiqueta/:idetiqueta', actualizarEtiqueta);
 router.get('/etiquetas', obtenerListadoEtiquetas);
 
-router.post('/columna', crearColumna);
-
 router.post('/archivo', crearArchivo);
 router.post('/obtenerarchivo', obtenerArchivoFiltro);
 router.post('/asignaretiqueta', asignarEtiqueta);
 router.post('/eliminarregistro', eliminarRegistroEnArchivo);
+
+router.post('/tipoarchivo', crearTipoArchivo);
+router.get('/tipoarchivo', ObtenerListadoTiposArchivo);
 
 
 

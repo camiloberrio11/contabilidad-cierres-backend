@@ -1,7 +1,7 @@
 
 import { Schema, model } from 'mongoose';
 
-const ColumnaSchema = new Schema({
+const TipoArchivoSchema = new Schema({
   Nombre: {
     type: String,
     uppercase: true
@@ -12,4 +12,4 @@ const ColumnaSchema = new Schema({
   },
 });
 
-export default model('Columna', ColumnaSchema);
+export default model('TipoArchivo', TipoArchivoSchema);

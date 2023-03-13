@@ -4,11 +4,16 @@ import { ResponseHttpService } from '../interfaces/HttpResponse';
 import Archivo from '../models/Archivo';
 import { ItemArchivo, ItemRegistroArchivo, RegistroArchivo } from '..//interfaces/Archivo';
 import { encontrarPapaId } from '../helpers/archivo';
+import { FieldArchivo } from 'src/interfaces/ItemArchivo';
 
 export async function crearArchivo(req: any, res: any): Promise<ResponseHttpService> {
   try {
     const archivoEnBuffer = Buffer.from(req?.body?.srcArchivo, 'base64');
-    const infoArchivo = construccionInformacion(archivoEnBuffer);
+    const infoArchivo = construccionInformacion(archivoEnBuffer, req?.body?.obra);
+
+    if (req?.body?.esPlantilla) {
+      await Archivo.updateMany({ EsPlantilla: true }, { EsPlantilla: false });
+    }
 
     const mapModelo = {
       Nombre: req?.body?.nombre?.toUpperCase(),
@@ -16,6 +21,8 @@ export async function crearArchivo(req: any, res: any): Promise<ResponseHttpServ
       Ano: req?.body?.ano,
       Obra: req?.body?.obra,
       Informacion: infoArchivo,
+      EsPlantilla: req?.body?.esPlantilla,
+      TipoArchivo: req?.body?.tipoArchivoId
     };
 
     const archivo = new Archivo(mapModelo);
@@ -45,7 +52,10 @@ export async function obtenerArchivoFiltro(req: any, res: any): Promise<Response
   }
 }
 
-export function construccionInformacion(fileInfo: Buffer): any {
+export async function construccionInformacion(
+  fileInfo: Buffer,
+  obraId: string
+): Promise<FieldArchivo[]> {
   const result = excelToJson({
     source: fileInfo,
   });
@@ -86,22 +96,25 @@ export function construccionInformacion(fileInfo: Buffer): any {
     (itA: any, itB: any) => +itA?.codigo - +itB?.codigo
   );
   // Mapeo
-  const listaDefinitiva: any[] = [];
+
+  const infoPlantila = await Archivo.findOne({ EsPlantilla: true, Obra: obraId });
+
+  const listaDefinitiva: FieldArchivo[] = [];
   for (const iterator of listadoOrdenado) {
     listaDefinitiva.push({
       data: {
         nombre: iterator?.NOMBRE,
         codigo: iterator?.CODIGO,
         consolidado: iterator?.CONSOLIDADO,
-        etiqueta: null,
-        papaId: encontrarPapaId(iterator?.CODIGO, listadoOrdenado)
+        etiqueta: infoPlantila
+          ? infoPlantila?.Informacion?.find((it) => it?.CODIGO === iterator?.CODIGO)?.etiqueta
+          : null,
+        papaId: encontrarPapaId(iterator?.CODIGO, listadoOrdenado) || null,
       },
     });
   }
   return listaDefinitiva;
 }
-
-
 
 export async function asignarEtiqueta(req: any, res: any): Promise<ResponseHttpService> {
   try {

@@ -1,5 +1,7 @@
 import { Schema, model } from 'mongoose';
 import Obra from './Obra';
+import TipoArchivo from './TipoArchivo';
+
 
 const ArchivoSchema = new Schema({
   Nombre: {
@@ -24,6 +26,14 @@ const ArchivoSchema = new Schema({
   FechaActualizacion: {
     type: Date,
     default: new Date()?.toISOString(),
+  },
+  EsPlantilla: {
+    type: Boolean,
+    default: false,
+  },
+  TipoArchivo: {
+    type: Schema.Types.ObjectId,
+    ref: TipoArchivo,
   },
 });
 
