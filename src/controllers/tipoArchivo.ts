@@ -4,8 +4,10 @@ import { ResponseHttpService } from '../interfaces/HttpResponse';
 
 export async function crearTipoArchivo(req: any, res: any): Promise<ResponseHttpService> {
   try {
+    const exist = await TipoArchivo.find({})?.count()
     const tipoArchivo = new TipoArchivo({
       Nombre: req?.body?.nombre?.toUpperCase(),
+      IdentificadorSecreto: exist
     });
     const existePrevio = await TipoArchivo?.findOne({ Nombre: req?.body?.nombre });
     if (existePrevio) {

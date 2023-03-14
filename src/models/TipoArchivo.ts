@@ -6,6 +6,10 @@ const TipoArchivoSchema = new Schema({
     type: String,
     uppercase: true
   },
+  IdentificadorSecreto: {
+    type: String,
+    uppercase: true
+  },
   FechaCreacion: {
     type: Date,
     default: new Date()?.toISOString(),
