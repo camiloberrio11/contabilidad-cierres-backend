@@ -2,14 +2,13 @@ import excelToJson from 'convert-excel-to-json';
 import { responseHttpService } from '../helpers/responseHttp';
 import { ResponseHttpService } from '../interfaces/HttpResponse';
 import Archivo from '../models/Archivo';
-import { ItemArchivo, ItemRegistroArchivo, RegistroArchivo } from '..//interfaces/Archivo';
 import { encontrarPapaId } from '../helpers/archivo';
 import { FieldArchivo } from 'src/interfaces/ItemArchivo';
 
 export async function crearArchivo(req: any, res: any): Promise<ResponseHttpService> {
   try {
     const archivoEnBuffer = Buffer.from(req?.body?.srcArchivo, 'base64');
-    const infoArchivo = construccionInformacion(archivoEnBuffer, req?.body?.obra);
+    const infoArchivo = await construccionInformacion(archivoEnBuffer, req?.body?.obra);
 
     if (req?.body?.esPlantilla) {
       await Archivo.updateMany({ EsPlantilla: true }, { EsPlantilla: false });
