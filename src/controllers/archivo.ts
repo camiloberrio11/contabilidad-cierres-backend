@@ -10,8 +10,18 @@ export async function crearArchivo(req: any, res: any): Promise<ResponseHttpServ
     const archivoEnBuffer = Buffer.from(req?.body?.srcArchivo, 'base64');
     const infoArchivo = await construccionInformacion(archivoEnBuffer, req?.body?.obra);
 
+    let existePlantilla = false;
     if (req?.body?.esPlantilla) {
-      await Archivo.updateMany({ EsPlantilla: true }, { EsPlantilla: false });
+      await Archivo.updateMany(
+        { EsPlantilla: true, Obra: req?.body?.obra, TipoArchivo: req?.body?.tipoArchivoId },
+        { EsPlantilla: false }
+      );
+    } else {
+      existePlantilla = !!(await Archivo.findOne({
+        Obra: req?.body?.obra,
+        TipoArchivo: req?.body?.tipoArchivoId,
+        EsPlantilla: true,
+      }));
     }
 
     const mapModelo = {
@@ -20,8 +30,8 @@ export async function crearArchivo(req: any, res: any): Promise<ResponseHttpServ
       Ano: req?.body?.ano,
       Obra: req?.body?.obra,
       Informacion: infoArchivo,
-      EsPlantilla: req?.body?.esPlantilla,
-      TipoArchivo: req?.body?.tipoArchivoId
+      EsPlantilla: !existePlantilla,
+      TipoArchivo: req?.body?.tipoArchivoId,
     };
 
     const archivo = new Archivo(mapModelo);

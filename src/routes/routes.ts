@@ -6,7 +6,7 @@ import {
   obtenerListadoEtiquetas,
 } from '../controllers/etiqueta';
 import { asignarEtiqueta, crearArchivo, eliminarRegistroEnArchivo, obtenerArchivoFiltro } from '../controllers/archivo';
-import { ObtenerListadoTiposArchivo, crearTipoArchivo } from '../controllers/tipoArchivo';
+import { ObtenerListadoTiposArchivo } from '../controllers/tipoArchivo';
 
 export const router = Router();
 
@@ -23,7 +23,6 @@ router.post('/obtenerarchivo', obtenerArchivoFiltro);
 router.post('/asignaretiqueta', asignarEtiqueta);
 router.post('/eliminarregistro', eliminarRegistroEnArchivo);
 
-router.post('/tipoarchivo', crearTipoArchivo);
 router.get('/tipoarchivo', ObtenerListadoTiposArchivo);
 
 

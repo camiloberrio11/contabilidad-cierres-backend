@@ -1,6 +1,5 @@
 import { Schema, model } from 'mongoose';
 import Obra from './Obra';
-import TipoArchivo from './TipoArchivo';
 
 
 const ArchivoSchema = new Schema({
@@ -32,8 +31,8 @@ const ArchivoSchema = new Schema({
     default: false,
   },
   TipoArchivo: {
-    type: Schema.Types.ObjectId,
-    ref: TipoArchivo,
+    type: String,
+    require: true
   },
 });
 
