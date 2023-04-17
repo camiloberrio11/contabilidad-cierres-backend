@@ -35,8 +35,8 @@ export async function crearArchivo(req: any, res: any): Promise<ResponseHttpServ
     };
 
     const archivo = new Archivo(mapModelo);
-    await archivo.save();
-    return responseHttpService(200, infoArchivo, 'Archivo creado', true, res);
+    const item = await archivo.save();
+    return responseHttpService(200, infoArchivo, `${item?._id}`, true, res);
   } catch (error: any) {
     return responseHttpService(500, null, error?.message, false, res);
   }
@@ -134,18 +134,25 @@ export async function asignarEtiqueta(req: any, res: any): Promise<ResponseHttpS
     if (!archivoInfo) {
       return responseHttpService(400, null, 'Archivo no encontrado', true, res);
     }
-    const nuevaInformacion = archivoInfo?.Informacion?.map((it) => {
-      if (it?.data?.codigo === id) {
-        it.data = { ...it?.data, etiqueta };
+
+    const newInformation = [];
+    for (const iterator of archivoInfo.Informacion) {
+      if (iterator?.data.codigo?.startsWith(id)) {
+        const newData = { ...iterator.data, etiqueta };
+        newInformation.push({ data: newData });
+        continue;
       }
-      return it;
-    });
-    const archivoActualizado = await Archivo.findByIdAndUpdate(
+      newInformation.push(iterator);
+    }
+
+    const fileUpdated = await Archivo.findOneAndUpdate(
       { _id: idArchivo },
-      { Informacion: nuevaInformacion },
+      { Informacion: newInformation },
       { new: true }
     );
-    return responseHttpService(200, archivoActualizado, 'Archivo actualizado', true, res);
+
+
+    return responseHttpService(200, JSON.parse(JSON.stringify(fileUpdated?.Informacion)), 'Archivo actualizado', true, res);
   } catch (error: any) {
     return responseHttpService(500, null, error?.message, false, res);
   }
