@@ -5,21 +5,23 @@ import Archivo from '../models/Archivo';
 import { encontrarPapaId } from '../helpers/archivo';
 import { FieldArchivo } from 'src/interfaces/ItemArchivo';
 
+type TIPO_ARCHIVO = 'VENTAS' | 'COSTOS';
+
 export async function crearArchivo(req: any, res: any): Promise<ResponseHttpService> {
   try {
     const archivoEnBuffer = Buffer.from(req?.body?.srcArchivo, 'base64');
-    const infoArchivo = await construccionInformacion(archivoEnBuffer, req?.body?.obra);
+    const infoArchivo = await construccionInformacion(archivoEnBuffer, req?.body?.obra, req?.body?.tipoArchivo);
 
     let existePlantilla = false;
     if (req?.body?.esPlantilla) {
       await Archivo.updateMany(
-        { EsPlantilla: true, Obra: req?.body?.obra, TipoArchivo: req?.body?.tipoArchivoId },
+        { EsPlantilla: true, Obra: req?.body?.obra, TipoArchivo: req?.body?.tipoArchivo },
         { EsPlantilla: false }
       );
     } else {
       existePlantilla = !!(await Archivo.findOne({
         Obra: req?.body?.obra,
-        TipoArchivo: req?.body?.tipoArchivoId,
+        TipoArchivo: req?.body?.tipoArchivo,
         EsPlantilla: true,
       }));
     }
@@ -31,7 +33,7 @@ export async function crearArchivo(req: any, res: any): Promise<ResponseHttpServ
       Obra: req?.body?.obra,
       Informacion: infoArchivo,
       EsPlantilla: !existePlantilla,
-      TipoArchivo: req?.body?.tipoArchivoId,
+      TipoArchivo: req?.body?.tipoArchivo,
     };
 
     const archivo = new Archivo(mapModelo);
@@ -63,11 +65,18 @@ export async function obtenerArchivoFiltro(req: any, res: any): Promise<Response
 
 export async function construccionInformacion(
   fileInfo: Buffer,
-  obraId: string
+  obraId: string,
+  typeFile: TIPO_ARCHIVO
 ): Promise<FieldArchivo[]> {
   const result = excelToJson({
     source: fileInfo,
   });
+
+  if (typeFile === 'VENTAS') {
+    const resultadoArchivo = getInfoFile(result['pyg']);
+    return resultadoArchivo;
+  }
+
   const hojaInformacion = result[obtenerNombreHoja(result)];
   const max = obtenerMaximoColumnas(hojaInformacion);
   const miListadoConValores: any = hojaInformacion?.filter((it) => Object.keys(it)?.length === max);
@@ -151,8 +160,13 @@ export async function asignarEtiqueta(req: any, res: any): Promise<ResponseHttpS
       { new: true }
     );
 
-
-    return responseHttpService(200, JSON.parse(JSON.stringify(fileUpdated?.Informacion)), 'Archivo actualizado', true, res);
+    return responseHttpService(
+      200,
+      JSON.parse(JSON.stringify(fileUpdated?.Informacion)),
+      'Archivo actualizado',
+      true,
+      res
+    );
   } catch (error: any) {
     return responseHttpService(500, null, error?.message, false, res);
   }
@@ -220,4 +234,28 @@ function cleanQuery(obj: any) {
     }
   }
   return obj;
+}
+
+function getInfoFile(info: any[]): FieldArchivo[] {
+  const INDICE_INICIO_CABECERA = 7;
+  const nuevo: FieldArchivo[] = [];
+  for (let index = INDICE_INICIO_CABECERA; index < info.length; index++) {
+    const element = info[index];
+    console.log(element)
+    if (!element?.B) {
+      continue;
+    }
+    nuevo.push({data:  
+    
+    {
+      nombre: element?.B || '',
+      consolidado: element?.O || '0',
+      codigo: `${index - INDICE_INICIO_CABECERA}`,
+      etiqueta: null,
+      papaId: null
+    }
+    
+    })
+  }
+  return nuevo;
 }
