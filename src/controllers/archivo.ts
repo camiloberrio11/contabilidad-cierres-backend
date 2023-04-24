@@ -10,21 +10,39 @@ type TIPO_ARCHIVO = 'VENTAS' | 'COSTOS';
 export async function crearArchivo(req: any, res: any): Promise<ResponseHttpService> {
   try {
     const archivoEnBuffer = Buffer.from(req?.body?.srcArchivo, 'base64');
-    const infoArchivo = await construccionInformacion(archivoEnBuffer, req?.body?.obra, req?.body?.tipoArchivo);
-
     let existePlantilla = false;
+    const informacion = await Archivo.findOne({
+      Obra: req?.body?.obra,
+      TipoArchivo: req?.body?.tipoArchivo,
+      EsPlantilla: true,
+    });
+
     if (req?.body?.esPlantilla) {
+      // Pasar todo a false
       await Archivo.updateMany(
         { EsPlantilla: true, Obra: req?.body?.obra, TipoArchivo: req?.body?.tipoArchivo },
         { EsPlantilla: false }
       );
-    } else {
-      existePlantilla = !!(await Archivo.findOne({
-        Obra: req?.body?.obra,
-        TipoArchivo: req?.body?.tipoArchivo,
-        EsPlantilla: true,
-      }));
+      existePlantilla = req?.body?.esPlantilla;
     }
+
+    if (!informacion) {
+      existePlantilla = true;
+    }
+
+    const actualPlantilla: any = await Archivo.findOne({
+      Obra: req?.body?.obra,
+      TipoArchivo: req?.body?.tipoArchivo,
+      EsPlantilla: true,
+    });
+
+    const infoArchivo = await construccionInformacion(
+      archivoEnBuffer,
+      req?.body?.obra,
+      req?.body?.tipoArchivo,
+      actualPlantilla?.Informacion || []
+    );
+
 
     const mapModelo = {
       Nombre: req?.body?.nombre?.toUpperCase(),
@@ -32,12 +50,13 @@ export async function crearArchivo(req: any, res: any): Promise<ResponseHttpServ
       Ano: req?.body?.ano,
       Obra: req?.body?.obra,
       Informacion: infoArchivo,
-      EsPlantilla: !existePlantilla,
+      EsPlantilla: existePlantilla,
       TipoArchivo: req?.body?.tipoArchivo,
     };
 
     const archivo = new Archivo(mapModelo);
     const item = await archivo.save();
+
     return responseHttpService(200, infoArchivo, `${item?._id}`, true, res);
   } catch (error: any) {
     return responseHttpService(500, null, error?.message, false, res);
@@ -65,8 +84,8 @@ export async function obtenerArchivoFiltro(req: any, res: any): Promise<Response
 
 export async function construccionInformacion(
   fileInfo: Buffer,
-  obraId: string,
-  typeFile: TIPO_ARCHIVO
+  typeFile: TIPO_ARCHIVO,
+  plantilla: any[]
 ): Promise<FieldArchivo[]> {
   const result = excelToJson({
     source: fileInfo,
@@ -115,18 +134,17 @@ export async function construccionInformacion(
   );
   // Mapeo
 
-  const infoPlantila = await Archivo.findOne({ EsPlantilla: true, Obra: obraId });
 
   const listaDefinitiva: FieldArchivo[] = [];
   for (const iterator of listadoOrdenado) {
+    const plantillaLimpia = JSON.parse(JSON.stringify(plantilla));
+    const etiquetaPlantilla = plantillaLimpia?.find((it: any) => it?.data?.codigo === iterator?.CODIGO) || null;
     listaDefinitiva.push({
       data: {
         nombre: iterator?.NOMBRE,
         codigo: iterator?.CODIGO,
         consolidado: iterator?.CONSOLIDADO,
-        etiqueta: infoPlantila
-          ? infoPlantila?.Informacion?.find((it) => it?.CODIGO === iterator?.CODIGO)?.etiqueta
-          : null,
+        etiqueta: etiquetaPlantilla?.data?.etiqueta || null,
         papaId: encontrarPapaId(iterator?.CODIGO, listadoOrdenado) || null,
       },
     });
@@ -144,15 +162,25 @@ export async function asignarEtiqueta(req: any, res: any): Promise<ResponseHttpS
       return responseHttpService(400, null, 'Archivo no encontrado', true, res);
     }
 
-    const newInformation = [];
-    for (const iterator of archivoInfo.Informacion) {
-      if (iterator?.data.codigo?.startsWith(id)) {
-        const newData = { ...iterator.data, etiqueta };
-        newInformation.push({ data: newData });
-        continue;
+    let newInformation = [];
+
+    if (archivoInfo.TipoArchivo === 'VENTAS') {
+      const otros = archivoInfo.Informacion?.filter((it) => it.data.codigo !== id);
+      const info = archivoInfo.Informacion?.find((it) => it.data.codigo === id);
+      newInformation = [...otros];
+      newInformation.push({ data: { ...info?.data, etiqueta } });
+    } else {
+      for (const iterator of archivoInfo.Informacion) {
+        if (iterator?.data.codigo?.startsWith(id)) {
+          const newData = { ...iterator.data, etiqueta };
+          newInformation.push({ data: newData });
+          continue;
+        }
+        newInformation.push(iterator);
       }
-      newInformation.push(iterator);
     }
+
+    newInformation = newInformation.sort((a, b) => +a.data.codigo - +b.data.codigo);
 
     const fileUpdated = await Archivo.findOneAndUpdate(
       { _id: idArchivo },
@@ -174,22 +202,35 @@ export async function asignarEtiqueta(req: any, res: any): Promise<ResponseHttpS
 
 export async function eliminarRegistroEnArchivo(req: any, res: any): Promise<ResponseHttpService> {
   try {
-    const id = req.body?.idArchivo;
+    const id = req.body?._id;
     const idRegistro = req.body?.idRegistro;
 
     const archivoInfo = await Archivo.findOne({ _id: id });
     if (!archivoInfo) {
       return responseHttpService(400, null, 'Archivo no encontrado', true, res);
     }
-    const nuevaInformacion = archivoInfo?.Informacion?.filter(
-      (it) => it?.data?.codigo !== idRegistro
-    );
+    let newInformation = [];
+
+    for (const iterator of archivoInfo.Informacion) {
+      if (iterator?.data.codigo?.startsWith(idRegistro)) {
+        continue;
+      }
+      newInformation.push(iterator);
+    }
+
+    // Que pasa con los hijos, huerfanos ???
     const archivoActualizado = await Archivo.findByIdAndUpdate(
       { _id: id },
-      { Informacion: nuevaInformacion },
+      { Informacion: newInformation },
       { new: true }
     );
-    return responseHttpService(200, archivoActualizado, 'Archivo actualizado', true, res);
+    return responseHttpService(
+      200,
+      JSON.parse(JSON.stringify(archivoActualizado?.Informacion)),
+      'Archivo actualizado',
+      true,
+      res
+    );
   } catch (error: any) {
     return responseHttpService(500, null, error?.message, false, res);
   }
@@ -241,21 +282,19 @@ function getInfoFile(info: any[]): FieldArchivo[] {
   const nuevo: FieldArchivo[] = [];
   for (let index = INDICE_INICIO_CABECERA; index < info.length; index++) {
     const element = info[index];
-    console.log(element)
+    console.log(element);
     if (!element?.B) {
       continue;
     }
-    nuevo.push({data:  
-    
-    {
-      nombre: element?.B || '',
-      consolidado: element?.O || '0',
-      codigo: `${index - INDICE_INICIO_CABECERA}`,
-      etiqueta: null,
-      papaId: null
-    }
-    
-    })
+    nuevo.push({
+      data: {
+        nombre: element?.B || '',
+        consolidado: element?.O || '0',
+        codigo: `${index - INDICE_INICIO_CABECERA}`,
+        etiqueta: null,
+        papaId: null,
+      },
+    });
   }
   return nuevo;
 }
