@@ -38,7 +38,6 @@ export async function crearArchivo(req: any, res: any): Promise<ResponseHttpServ
 
     const infoArchivo = await construccionInformacion(
       archivoEnBuffer,
-      req?.body?.obra,
       req?.body?.tipoArchivo,
       actualPlantilla?.Informacion || []
     );
