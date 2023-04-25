@@ -42,7 +42,6 @@ export async function crearArchivo(req: any, res: any): Promise<ResponseHttpServ
       actualPlantilla?.Informacion || []
     );
 
-
     const mapModelo = {
       Nombre: req?.body?.nombre?.toUpperCase(),
       Mes: req?.body?.mes,
@@ -86,69 +85,76 @@ export async function construccionInformacion(
   typeFile: TIPO_ARCHIVO,
   plantilla: any[]
 ): Promise<FieldArchivo[]> {
-  const result = excelToJson({
-    source: fileInfo,
-  });
+  try {
+    const result = excelToJson({
+      source: fileInfo,
+    });
 
-  if (typeFile === 'VENTAS') {
-    const resultadoArchivo = getInfoFile(result['pyg']);
-    return resultadoArchivo;
-  }
-
-  const hojaInformacion = result[obtenerNombreHoja(result)];
-  const max = obtenerMaximoColumnas(hojaInformacion);
-  const miListadoConValores: any = hojaInformacion?.filter((it) => Object.keys(it)?.length === max);
-  // Construccion de cabeceras
-  const cabeceras: { columna: string; nombre: string }[] = [];
-  const [cabecerasObj] = miListadoConValores;
-  for (const key in cabecerasObj) {
-    if (Object.prototype.hasOwnProperty.call(cabecerasObj, key)) {
-      cabeceras.push({ columna: key, nombre: `${removerCaracteres(cabecerasObj[key])}` });
+    if (typeFile === 'VENTAS') {
+      const resultadoArchivo = getInfoFile(result['pyg']);
+      return resultadoArchivo;
     }
-  }
 
-  // Formatear registros
-  const registrosFormateados = [];
-  const registros = miListadoConValores?.splice(1);
-  for (const registro of registros) {
-    let registroConcat = {};
-    for (const key in registro) {
-      if (Object.prototype.hasOwnProperty.call(registro, key)) {
-        const cabecera: any = cabeceras.find((it) => it?.columna === key);
-        const element = registro[key];
-
-        registroConcat = {
-          ...registroConcat,
-          [removerCaracteres(cabecera?.nombre)]: removerCaracteres(element),
-          LETRA: key,
-        };
+    const hojaInformacion = result[obtenerNombreHoja(result)];
+    const max = obtenerMaximoColumnas(hojaInformacion);
+    const miListadoConValores: any = hojaInformacion?.filter(
+      (it) => Object.keys(it)?.length === max
+    );
+    // Construccion de cabeceras
+    const cabeceras: { columna: string; nombre: string }[] = [];
+    const [cabecerasObj] = miListadoConValores;
+    for (const key in cabecerasObj) {
+      if (Object.prototype.hasOwnProperty.call(cabecerasObj, key)) {
+        cabeceras.push({ columna: key, nombre: `${removerCaracteres(cabecerasObj[key])}` });
       }
     }
-    registrosFormateados.push(registroConcat);
+
+    // Formatear registros
+    const registrosFormateados = [];
+    const registros = miListadoConValores?.splice(1);
+    for (const registro of registros) {
+      let registroConcat = {};
+      for (const key in registro) {
+        if (Object.prototype.hasOwnProperty.call(registro, key)) {
+          const cabecera: any = cabeceras.find((it) => it?.columna === key);
+          const element = registro[key];
+
+          registroConcat = {
+            ...registroConcat,
+            [removerCaracteres(cabecera?.nombre)]: removerCaracteres(element),
+            LETRA: key,
+          };
+        }
+      }
+      registrosFormateados.push(registroConcat);
+    }
+
+    // Ordenar los registros
+    let listadoOrdenado: any[] = registrosFormateados?.sort(
+      (itA: any, itB: any) => +itA?.codigo - +itB?.codigo
+    );
+    // Mapeo
+
+    const listaDefinitiva: FieldArchivo[] = [];
+    for (const iterator of listadoOrdenado) {
+      const plantillaLimpia = JSON.parse(JSON.stringify(plantilla)) || [];
+      const etiquetaPlantilla =
+        plantillaLimpia?.find((it: any) => it?.data?.codigo === iterator?.CODIGO) || null;
+      listaDefinitiva.push({
+        data: {
+          nombre: iterator?.NOMBRE,
+          codigo: iterator?.CODIGO,
+          consolidado: iterator?.CONSOLIDADO,
+          etiqueta: etiquetaPlantilla?.data?.etiqueta || null,
+          papaId: encontrarPapaId(iterator?.CODIGO, listadoOrdenado) || null,
+        },
+      });
+    }
+    return listaDefinitiva;
+  } catch (error) {
+    console.log(error);
+    return [];
   }
-
-  // Ordenar los registros
-  let listadoOrdenado: any[] = registrosFormateados?.sort(
-    (itA: any, itB: any) => +itA?.codigo - +itB?.codigo
-  );
-  // Mapeo
-
-
-  const listaDefinitiva: FieldArchivo[] = [];
-  for (const iterator of listadoOrdenado) {
-    const plantillaLimpia = JSON.parse(JSON.stringify(plantilla));
-    const etiquetaPlantilla = plantillaLimpia?.find((it: any) => it?.data?.codigo === iterator?.CODIGO) || null;
-    listaDefinitiva.push({
-      data: {
-        nombre: iterator?.NOMBRE,
-        codigo: iterator?.CODIGO,
-        consolidado: iterator?.CONSOLIDADO,
-        etiqueta: etiquetaPlantilla?.data?.etiqueta || null,
-        papaId: encontrarPapaId(iterator?.CODIGO, listadoOrdenado) || null,
-      },
-    });
-  }
-  return listaDefinitiva;
 }
 
 export async function asignarEtiqueta(req: any, res: any): Promise<ResponseHttpService> {

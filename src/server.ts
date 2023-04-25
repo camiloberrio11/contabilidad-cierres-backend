@@ -3,6 +3,7 @@ import cors from 'cors';
 import * as dotenv from 'dotenv';
 import { router } from './routes/routes';
 import { connectDatabase } from './database/database';
+import { generateExcel } from './helpers/excel';
 
 dotenv.config();
 

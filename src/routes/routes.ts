@@ -7,6 +7,7 @@ import {
 } from '../controllers/etiqueta';
 import { asignarEtiqueta, crearArchivo, eliminarRegistroEnArchivo, obtenerArchivoFiltro } from '../controllers/archivo';
 import { ObtenerListadoTiposArchivo } from '../controllers/tipoArchivo';
+import { generateExcel } from '../helpers/excel';
 
 export const router = Router();
 
@@ -24,6 +25,9 @@ router.post('/asignaretiqueta', asignarEtiqueta);
 router.post('/eliminarregistro', eliminarRegistroEnArchivo);
 
 router.get('/tipoarchivo', ObtenerListadoTiposArchivo);
+
+
+router.post("/excel", generateExcel);
 
 
 
