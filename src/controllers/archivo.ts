@@ -252,6 +252,37 @@ export async function eliminarRegistroEnArchivo(req: any, res: any): Promise<Res
   }
 }
 
+export async function obtenerEtiquetados(req: any, res: any): Promise<ResponseHttpService> {
+  try {
+    const id = req?.params?.idarchivo;
+    const items = await Archivo.findOne({ _id: id });
+
+    const soloTag = items?.Informacion?.filter((it) => it?.data?.etiqueta !== null) || [];
+    const mapperList = soloTag?.map((it) => ({
+      CODIGO: it?.data?.codigo,
+    }));
+    const listaInformacion: any[] = [];
+    for (const iterator of mapperList) {
+      const papa = encontrarPapaId(iterator?.CODIGO, mapperList);
+      const item = soloTag?.find((it) => it?.data?.codigo === iterator?.CODIGO);
+      if (papa) {
+        const itemNuevo = { data: { ...item?.data, papaId: papa } };
+        listaInformacion.push(itemNuevo);
+        continue;
+      }
+      listaInformacion.push({data: {...item?.data, papaId: null}});
+    }
+    if (listaInformacion?.length > 0) {
+      return responseHttpService(200, listaInformacion, '', true, res);
+    }
+    return responseHttpService(400, null, 'No se encontraron datos etiquetados', true, res);
+  } catch (error: any) {
+    return responseHttpService(500, null, error?.message, false, res);
+  }
+}
+
+
+
 function obtenerNombreHoja(info: any): string {
   return Object.keys(info)[Object.keys(info)?.length - 1];
 }

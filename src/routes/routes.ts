@@ -5,7 +5,7 @@ import {
   crearEtiqueta,
   obtenerListadoEtiquetas,
 } from '../controllers/etiqueta';
-import { asignarEtiqueta, crearArchivo, eliminarRegistroEnArchivo, obtenerArchivoFiltro } from '../controllers/archivo';
+import { asignarEtiqueta, crearArchivo, eliminarRegistroEnArchivo, obtenerArchivoFiltro, obtenerEtiquetados } from '../controllers/archivo';
 import { ObtenerListadoTiposArchivo } from '../controllers/tipoArchivo';
 import { generateExcel } from '../helpers/excel';
 import { crearFormula, obtenerListadoFormulas } from '../controllers/formula';
@@ -35,3 +35,6 @@ router.post("/excel", generateExcel);
 
 
 
+
+
+router.get('/etiquetados/:idarchivo', obtenerEtiquetados);
