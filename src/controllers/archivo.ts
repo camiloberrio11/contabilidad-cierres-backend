@@ -4,6 +4,7 @@ import { ResponseHttpService } from '../interfaces/HttpResponse';
 import Archivo from '../models/Archivo';
 import { encontrarPapaId } from '../helpers/archivo';
 import { FieldArchivo } from 'src/interfaces/ItemArchivo';
+import { PALABRAS_ITEMS_EXCLUYENTES } from '../constants/filtrados';
 
 type TIPO_ARCHIVO = 'VENTAS' | 'COSTOS';
 
@@ -137,9 +138,19 @@ export async function construccionInformacion(
 
     const listaDefinitiva: FieldArchivo[] = [];
     for (const iterator of listadoOrdenado) {
+      const nombre = iterator?.NOMBRE?.toUpperCase();
+      if (PALABRAS_ITEMS_EXCLUYENTES?.includes(nombre)) {
+        continue;
+      }
       const plantillaLimpia = JSON.parse(JSON.stringify(plantilla)) || [];
-      const etiquetaPlantilla =
+      let etiquetaPlantilla =
         plantillaLimpia?.find((it: any) => it?.data?.codigo === iterator?.CODIGO) || null;
+      if (!etiquetaPlantilla) {
+        const idPapa = encontrarPapaId(iterator?.CODIGO, listadoOrdenado);
+        if (idPapa) {
+          etiquetaPlantilla = listaDefinitiva.find((it) => it.data.codigo === idPapa);
+        }
+      }
       listaDefinitiva.push({
         data: {
           nombre: iterator?.NOMBRE,
@@ -287,14 +298,13 @@ function getInfoFile(info: any[]): FieldArchivo[] {
   const nuevo: FieldArchivo[] = [];
   for (let index = INDICE_INICIO_CABECERA; index < info.length; index++) {
     const element = info[index];
-    console.log(element);
     if (!element?.B) {
       continue;
     }
     nuevo.push({
       data: {
-        nombre: element?.B || '',
-        consolidado: element?.O || '0',
+        nombre: `${element?.B}` || '',
+        consolidado: `${element?.O}` || '0',
         codigo: `${index - INDICE_INICIO_CABECERA}`,
         etiqueta: null,
         papaId: null,

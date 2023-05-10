@@ -12,6 +12,7 @@ export const generateExcel = async (req: Request, res: Response) => {
       { header: 'Item', key: 'item', width: 30 },
       { header: 'Valor', key: 'valor', width: 30 },
     ];
+    worksheet.addRow(`FECHA DE ENSAYO ${new Date()?.toISOString()?.split('T')[0]}`);
     for (const iterator of items) {
       worksheet.addRow({ item: iterator?.id, valor: iterator?.value });
     }
@@ -28,7 +29,6 @@ export const generateExcel = async (req: Request, res: Response) => {
       true,
       res
     );
-
   } catch (error: any) {
     return responseHttpService(500, null, error?.message, false, res);
   }

@@ -1,6 +1,6 @@
-import { responseHttpService } from 'src/helpers/responseHttp';
-import { ResponseHttpService } from 'src/interfaces/HttpResponse';
-import Formula from 'src/models/Formula';
+import { responseHttpService } from '../helpers/responseHttp';
+import { ResponseHttpService } from '../interfaces/HttpResponse';
+import Formula from '../models/Formula';
 
 export async function crearFormula(req: any, res: any): Promise<ResponseHttpService> {
   try {

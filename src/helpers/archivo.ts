@@ -3,9 +3,6 @@ export function encontrarPapaId(idbuscar: string, listadoItems: any[]) {
   let maxCoincidencia = '';
   let papa;
   for (let i = 0; i < lista.length; i++) {
-    if (lista[i]?.CODIGO === '2' && idbuscar === '2') {
-      console.log('entre');
-    }
     if (idbuscar.startsWith(lista[i]?.CODIGO)) {
       if (lista[i].CODIGO.startsWith(maxCoincidencia)) {
         if (lista[i].CODIGO === idbuscar) {

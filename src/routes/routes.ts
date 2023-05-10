@@ -8,7 +8,7 @@ import {
 import { asignarEtiqueta, crearArchivo, eliminarRegistroEnArchivo, obtenerArchivoFiltro } from '../controllers/archivo';
 import { ObtenerListadoTiposArchivo } from '../controllers/tipoArchivo';
 import { generateExcel } from '../helpers/excel';
-import { crearFormula, obtenerListadoFormulas } from 'src/controllers/formula';
+import { crearFormula, obtenerListadoFormulas } from '../controllers/formula';
 
 export const router = Router();
 
