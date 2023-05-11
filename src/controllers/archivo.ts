@@ -2,12 +2,46 @@ import excelToJson from 'convert-excel-to-json';
 import { responseHttpService } from '../helpers/responseHttp';
 import { ResponseHttpService } from '../interfaces/HttpResponse';
 import Archivo from '../models/Archivo';
-import { ItemArchivo, ItemRegistroArchivo, RegistroArchivo } from '..//interfaces/Archivo';
+import { encontrarPapaId } from '../helpers/archivo';
+import { FieldArchivo } from 'src/interfaces/ItemArchivo';
+import { PALABRAS_ITEMS_EXCLUYENTES } from '../constants/filtrados';
+
+type TIPO_ARCHIVO = 'VENTAS' | 'COSTOS';
 
 export async function crearArchivo(req: any, res: any): Promise<ResponseHttpService> {
   try {
     const archivoEnBuffer = Buffer.from(req?.body?.srcArchivo, 'base64');
-    const infoArchivo = construccionInformacion(archivoEnBuffer);
+    let existePlantilla = false;
+    const informacion = await Archivo.findOne({
+      Obra: req?.body?.obra,
+      TipoArchivo: req?.body?.tipoArchivo,
+      EsPlantilla: true,
+    });
+
+    if (req?.body?.esPlantilla) {
+      // Pasar todo a false
+      await Archivo.updateMany(
+        { EsPlantilla: true, Obra: req?.body?.obra, TipoArchivo: req?.body?.tipoArchivo },
+        { EsPlantilla: false }
+      );
+      existePlantilla = req?.body?.esPlantilla;
+    }
+
+    if (!informacion) {
+      existePlantilla = true;
+    }
+
+    const actualPlantilla: any = await Archivo.findOne({
+      Obra: req?.body?.obra,
+      TipoArchivo: req?.body?.tipoArchivo,
+      EsPlantilla: true,
+    });
+
+    const infoArchivo = await construccionInformacion(
+      archivoEnBuffer,
+      req?.body?.tipoArchivo,
+      actualPlantilla?.Informacion || []
+    );
 
     const mapModelo = {
       Nombre: req?.body?.nombre?.toUpperCase(),
@@ -15,11 +49,14 @@ export async function crearArchivo(req: any, res: any): Promise<ResponseHttpServ
       Ano: req?.body?.ano,
       Obra: req?.body?.obra,
       Informacion: infoArchivo,
+      EsPlantilla: existePlantilla,
+      TipoArchivo: req?.body?.tipoArchivo,
     };
 
     const archivo = new Archivo(mapModelo);
-    await archivo.save();
-    return responseHttpService(200, infoArchivo, 'Archivo creado', true, res);
+    const item = await archivo.save();
+
+    return responseHttpService(200, infoArchivo, `${item?._id}`, true, res);
   } catch (error: any) {
     return responseHttpService(500, null, error?.message, false, res);
   }
@@ -44,83 +81,91 @@ export async function obtenerArchivoFiltro(req: any, res: any): Promise<Response
   }
 }
 
-export function construccionInformacion(fileInfo: Buffer): any {
-  const result = excelToJson({
-    source: fileInfo,
-  });
-  const hojaInformacion = result[obtenerNombreHoja(result)];
-  const max = obtenerMaximoColumnas(hojaInformacion);
-  const miListadoConValores: any = hojaInformacion?.filter((it) => Object.keys(it)?.length === max);
-  // Construccion de cabeceras
-  const cabeceras: { columna: string; nombre: string }[] = [];
-  const [cabecerasObj] = miListadoConValores;
-  for (const key in cabecerasObj) {
-    if (Object.prototype.hasOwnProperty.call(cabecerasObj, key)) {
-      cabeceras.push({ columna: key, nombre: `${removerCaracteres(cabecerasObj[key])}` });
+export async function construccionInformacion(
+  fileInfo: Buffer,
+  typeFile: TIPO_ARCHIVO,
+  plantilla: any[]
+): Promise<FieldArchivo[]> {
+  try {
+    const result = excelToJson({
+      source: fileInfo,
+    });
+
+    if (typeFile === 'VENTAS') {
+      const resultadoArchivo = getInfoFile(result['pyg']);
+      return resultadoArchivo;
     }
-  }
 
-  // Formatear registros
-  const registrosFormateados = [];
-  const registros = miListadoConValores?.splice(1);
-  for (const registro of registros) {
-    let registroConcat = {};
-    for (const key in registro) {
-      if (Object.prototype.hasOwnProperty.call(registro, key)) {
-        const cabecera: any = cabeceras.find((it) => it?.columna === key);
-        const element = registro[key];
-
-        registroConcat = {
-          ...registroConcat,
-          [removerCaracteres(cabecera?.nombre)]: removerCaracteres(element),
-          LETRA: key,
-        };
+    const hojaInformacion = result[obtenerNombreHoja(result)];
+    const max = obtenerMaximoColumnas(hojaInformacion);
+    const miListadoConValores: any = hojaInformacion?.filter(
+      (it) => Object.keys(it)?.length === max
+    );
+    // Construccion de cabeceras
+    const cabeceras: { columna: string; nombre: string }[] = [];
+    const [cabecerasObj] = miListadoConValores;
+    for (const key in cabecerasObj) {
+      if (Object.prototype.hasOwnProperty.call(cabecerasObj, key)) {
+        cabeceras.push({ columna: key, nombre: `${removerCaracteres(cabecerasObj[key])}` });
       }
     }
-    registrosFormateados.push(registroConcat);
-  }
 
-  // Ordenar los registros
-  let listadoOrdenado: any[] = registrosFormateados?.sort(
-    (itA: any, itB: any) => +itA?.codigo - +itB?.codigo
-  );
-  // Mapeo
-  const listaDefinitiva: any[] = [];
-  for (const iterator of listadoOrdenado) {
-    listaDefinitiva.push({
-      data: {
-        nombre: iterator?.NOMBRE,
-        codigo: iterator?.CODIGO,
-        consolidado: iterator?.CONSOLIDADO,
-        etiqueta: null,
-      },
-    });
+    // Formatear registros
+    const registrosFormateados = [];
+    const registros = miListadoConValores?.splice(1);
+    for (const registro of registros) {
+      let registroConcat = {};
+      for (const key in registro) {
+        if (Object.prototype.hasOwnProperty.call(registro, key)) {
+          const cabecera: any = cabeceras.find((it) => it?.columna === key);
+          const element = registro[key];
+
+          registroConcat = {
+            ...registroConcat,
+            [removerCaracteres(cabecera?.nombre)]: removerCaracteres(element),
+            LETRA: key,
+          };
+        }
+      }
+      registrosFormateados.push(registroConcat);
+    }
+
+    // Ordenar los registros
+    let listadoOrdenado: any[] = registrosFormateados?.sort(
+      (itA: any, itB: any) => +itA?.codigo - +itB?.codigo
+    );
+    // Mapeo
+
+    const listaDefinitiva: FieldArchivo[] = [];
+    for (const iterator of listadoOrdenado) {
+      const nombre = iterator?.NOMBRE?.toUpperCase();
+      if (PALABRAS_ITEMS_EXCLUYENTES.some((item) => nombre.includes(item))) {
+        continue;
+      }
+      const plantillaLimpia = JSON.parse(JSON.stringify(plantilla)) || [];
+      let etiquetaPlantilla =
+        plantillaLimpia?.find((it: any) => it?.data?.codigo === iterator?.CODIGO) || null;
+      if (!etiquetaPlantilla) {
+        const idPapa = encontrarPapaId(iterator?.CODIGO, listadoOrdenado);
+        if (idPapa) {
+          etiquetaPlantilla = listaDefinitiva.find((it) => it.data.codigo === idPapa);
+        }
+      }
+      listaDefinitiva.push({
+        data: {
+          nombre: iterator?.NOMBRE,
+          codigo: iterator?.CODIGO,
+          consolidado: iterator?.CONSOLIDADO,
+          etiqueta: etiquetaPlantilla?.data?.etiqueta || null,
+          papaId: encontrarPapaId(iterator?.CODIGO, listadoOrdenado) || null,
+        },
+      });
+    }
+    return listaDefinitiva;
+  } catch (error) {
+    console.log(error);
+    return [];
   }
-  // for (let index = 0; index < listadoOrdenado.length; index++) {
-  //   const element = listadoOrdenado[index];
-  //   const childrens = listadoOrdenado?.filter((it: any) => it?.CODIGO?.includes(element?.CODIGO));
-  //   listadoOrdenado = listadoOrdenado.filter((it: any) => !it?.CODIGO?.includes(element?.CODIGO));
-  //   listaDefinitiva.push({
-  //     data: {
-  //       nombre: element?.NOMBRE,
-  //       codigo: element?.CODIGO,
-  //       consolidado: element?.CONSOLIDADO,
-  //       etiqueta: null,
-  //     },
-  //     children: [
-  //       ...childrens.map((it) => ({
-  //         data: {
-  //           nombre: it?.NOMBRE,
-  //           codigo: it?.CODIGO,
-  //           consolidado: it?.CONSOLIDADO,
-  //           children: [],
-  //           etiqueta: null,
-  //         },
-  //       })),
-  //     ],
-  //   });
-  // }
-  return listaDefinitiva;
 }
 
 export async function asignarEtiqueta(req: any, res: any): Promise<ResponseHttpService> {
@@ -132,18 +177,40 @@ export async function asignarEtiqueta(req: any, res: any): Promise<ResponseHttpS
     if (!archivoInfo) {
       return responseHttpService(400, null, 'Archivo no encontrado', true, res);
     }
-    const nuevaInformacion = archivoInfo?.Informacion?.map((it) => {
-      if (it?.data?.codigo === id) {
-        it.data = { ...it?.data, etiqueta };
+
+    let newInformation = [];
+
+    if (archivoInfo.TipoArchivo === 'VENTAS') {
+      const otros = archivoInfo.Informacion?.filter((it) => it.data.codigo !== id);
+      const info = archivoInfo.Informacion?.find((it) => it.data.codigo === id);
+      newInformation = [...otros];
+      newInformation.push({ data: { ...info?.data, etiqueta } });
+    } else {
+      for (const iterator of archivoInfo.Informacion) {
+        if (iterator?.data.codigo?.startsWith(id)) {
+          const newData = { ...iterator.data, etiqueta };
+          newInformation.push({ data: newData });
+          continue;
+        }
+        newInformation.push(iterator);
       }
-      return it;
-    });
-    const archivoActualizado = await Archivo.findByIdAndUpdate(
+    }
+
+    newInformation = newInformation.sort((a, b) => +a.data.codigo - +b.data.codigo);
+
+    const fileUpdated = await Archivo.findOneAndUpdate(
       { _id: idArchivo },
-      { Informacion: nuevaInformacion },
+      { Informacion: newInformation },
       { new: true }
     );
-    return responseHttpService(200, archivoActualizado, 'Archivo actualizado', true, res);
+
+    return responseHttpService(
+      200,
+      JSON.parse(JSON.stringify(fileUpdated?.Informacion)),
+      'Archivo actualizado',
+      true,
+      res
+    );
   } catch (error: any) {
     return responseHttpService(500, null, error?.message, false, res);
   }
@@ -151,29 +218,101 @@ export async function asignarEtiqueta(req: any, res: any): Promise<ResponseHttpS
 
 export async function eliminarRegistroEnArchivo(req: any, res: any): Promise<ResponseHttpService> {
   try {
-    const id = req.body?.idArchivo;
+    const id = req.body?._id;
     const idRegistro = req.body?.idRegistro;
 
     const archivoInfo = await Archivo.findOne({ _id: id });
     if (!archivoInfo) {
       return responseHttpService(400, null, 'Archivo no encontrado', true, res);
     }
-    const nuevaInformacion = archivoInfo?.Informacion?.filter(
-      (it) => it?.data?.codigo !== idRegistro
-    );
+    let newInformation = [];
+
+    for (const iterator of archivoInfo.Informacion) {
+      if (iterator?.data.codigo?.startsWith(idRegistro)) {
+        continue;
+      }
+      newInformation.push(iterator);
+    }
+
+    // Que pasa con los hijos, huerfanos ???
     const archivoActualizado = await Archivo.findByIdAndUpdate(
       { _id: id },
-      { Informacion: nuevaInformacion },
+      { Informacion: newInformation },
       { new: true }
     );
-    return responseHttpService(200, archivoActualizado, 'Archivo actualizado', true, res);
+    return responseHttpService(
+      200,
+      JSON.parse(JSON.stringify(archivoActualizado?.Informacion)),
+      'Archivo actualizado',
+      true,
+      res
+    );
   } catch (error: any) {
     return responseHttpService(500, null, error?.message, false, res);
   }
 }
 
+export async function obtenerEtiquetados(req: any, res: any): Promise<ResponseHttpService> {
+  try {
+    const id = req?.params?.idarchivo;
+    const items = await Archivo.findOne({ _id: id });
+
+    const soloTag = items?.Informacion?.filter((it) => it?.data?.etiqueta !== null) || [];
+    const mapperList = soloTag?.map((it) => ({
+      CODIGO: it?.data?.codigo,
+    }));
+    const listaInformacion: any[] = [];
+    const ordenado = mapperList.sort(comparador);
+    for (const iterator of ordenado) {
+      const papa = encontrarPapaId(iterator?.CODIGO, mapperList);
+      const item = soloTag?.find((it) => it?.data?.codigo === iterator?.CODIGO);
+      if (papa && papa !== iterator?.CODIGO) {
+        const itemNuevo = { data: { ...item?.data, papaId: papa } };
+        listaInformacion.push(itemNuevo);
+        continue;
+      }
+      listaInformacion.push({ data: { ...item?.data, papaId: null } });
+    }
+    if (listaInformacion?.length > 0) {
+      return responseHttpService(200, listaInformacion, '', true, res);
+    }
+    return responseHttpService(400, null, 'No se encontraron datos etiquetados', true, res);
+  } catch (error: any) {
+    return responseHttpService(500, null, error?.message, false, res);
+  }
+}
+
+function comparador(objA: any, objB: any) {
+  // Verificar si a es un subconjunto de b
+  const a = objA?.CODIGO;
+  const b = objB?.CODIGO;
+
+  if (b.startsWith(a)) {
+    return -1; // a viene antes que b
+  }
+
+  // Verificar si b es un subconjunto de a
+  if (a.startsWith(b)) {
+    return 1; // b viene antes que a
+  }
+
+  // No hay una relación de subconjunto entre a y b
+  return a.localeCompare(b); // Ordenar por valor numérico
+}
+
 function obtenerNombreHoja(info: any): string {
   return Object.keys(info)[Object.keys(info)?.length - 1];
+}
+
+
+
+function obtenerCodigoPadre(codigo: string) {
+  const lastChar = codigo[codigo.length - 1];
+  if (lastChar === '0' || lastChar === '1') {
+    return codigo.substring(0, codigo.length - 2);
+  } else {
+    return codigo.substring(0, codigo.length - 1);
+  }
 }
 
 function obtenerMaximoColumnas(listaInfomacion: any[]): number {
@@ -211,4 +350,25 @@ function cleanQuery(obj: any) {
     }
   }
   return obj;
+}
+
+function getInfoFile(info: any[]): FieldArchivo[] {
+  const INDICE_INICIO_CABECERA = 7;
+  const nuevo: FieldArchivo[] = [];
+  for (let index = INDICE_INICIO_CABECERA; index < info.length; index++) {
+    const element = info[index];
+    if (!element?.B) {
+      continue;
+    }
+    nuevo.push({
+      data: {
+        nombre: `${element?.B}` || '',
+        consolidado: `${element?.O}` || '0',
+        codigo: `${index - INDICE_INICIO_CABECERA}`,
+        etiqueta: null,
+        papaId: null,
+      },
+    });
+  }
+  return nuevo;
 }
