@@ -139,7 +139,7 @@ export async function construccionInformacion(
     const listaDefinitiva: FieldArchivo[] = [];
     for (const iterator of listadoOrdenado) {
       const nombre = iterator?.NOMBRE?.toUpperCase();
-      if (PALABRAS_ITEMS_EXCLUYENTES?.includes(nombre)) {
+      if (PALABRAS_ITEMS_EXCLUYENTES.some((item) => nombre.includes(item))) {
         continue;
       }
       const plantillaLimpia = JSON.parse(JSON.stringify(plantilla)) || [];
@@ -262,15 +262,16 @@ export async function obtenerEtiquetados(req: any, res: any): Promise<ResponseHt
       CODIGO: it?.data?.codigo,
     }));
     const listaInformacion: any[] = [];
-    for (const iterator of mapperList) {
+    const ordenado = mapperList.sort(comparador);
+    for (const iterator of ordenado) {
       const papa = encontrarPapaId(iterator?.CODIGO, mapperList);
       const item = soloTag?.find((it) => it?.data?.codigo === iterator?.CODIGO);
-      if (papa) {
+      if (papa && papa !== iterator?.CODIGO) {
         const itemNuevo = { data: { ...item?.data, papaId: papa } };
         listaInformacion.push(itemNuevo);
         continue;
       }
-      listaInformacion.push({data: {...item?.data, papaId: null}});
+      listaInformacion.push({ data: { ...item?.data, papaId: null } });
     }
     if (listaInformacion?.length > 0) {
       return responseHttpService(200, listaInformacion, '', true, res);
@@ -281,10 +282,37 @@ export async function obtenerEtiquetados(req: any, res: any): Promise<ResponseHt
   }
 }
 
+function comparador(objA: any, objB: any) {
+  // Verificar si a es un subconjunto de b
+  const a = objA?.CODIGO;
+  const b = objB?.CODIGO;
 
+  if (b.startsWith(a)) {
+    return -1; // a viene antes que b
+  }
+
+  // Verificar si b es un subconjunto de a
+  if (a.startsWith(b)) {
+    return 1; // b viene antes que a
+  }
+
+  // No hay una relación de subconjunto entre a y b
+  return a.localeCompare(b); // Ordenar por valor numérico
+}
 
 function obtenerNombreHoja(info: any): string {
   return Object.keys(info)[Object.keys(info)?.length - 1];
+}
+
+
+
+function obtenerCodigoPadre(codigo: string) {
+  const lastChar = codigo[codigo.length - 1];
+  if (lastChar === '0' || lastChar === '1') {
+    return codigo.substring(0, codigo.length - 2);
+  } else {
+    return codigo.substring(0, codigo.length - 1);
+  }
 }
 
 function obtenerMaximoColumnas(listaInfomacion: any[]): number {
